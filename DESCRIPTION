@@ -1,0 +1,21 @@
+Package: Ropencorporate
+Type: Package
+Title: What the Package Does (Title Case)
+Version: 0.1.0
+Author: Who wrote it
+Maintainer: Who to complain to <yourfault@somewhere.net>
+Description: More about what it does (maybe more than one line)
+License: What license is it under?
+LazyData: TRUE
+License: CC0
+Depends:
+    data.table,
+    xtable,
+    stringr,
+    DT,
+    leaflet,
+    xml2,
+    rjson,
+    tidyjson,
+    dplyr
+RoxygenNote: 5.0.1
