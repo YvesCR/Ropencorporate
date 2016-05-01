@@ -4,18 +4,25 @@
 \alias{ropencorp}
 \title{Query opencorporate website}
 \usage{
-ropencorp(term, nb.page = 2, credential = NULL, country = NULL)
+ropencorp(term, nb.page = 2, token = NULL, country = NULL)
 }
 \arguments{
 \item{term}{Term to query on the open corporate website}
 
 \item{nb.page}{Number of pages to query}
 
-\item{credential}{Credential, for the professionnal version}
+\item{token}{Token for the owner of an opencorporate account}
 
 \item{country}{List or vector of countries to query}
 }
 \description{
 Query opencorporate website
+}
+\note{
+The returned object is a data.table if the data.table package is attached. Otherwise, it is a data.frame. Here, using the data.table package speed up the script.
+}
+\examples{
+  ropencorp("gold holding", nb.page = 2)
+
 }
 

@@ -7,12 +7,25 @@
 fingerprint.func(x)
 }
 \arguments{
-\item{x}{a vector of strings.}
+\item{x}{a string.}
 }
 \description{
 Fingerprint function to clean the character
 }
+\details{
+The process that generates the key from a string value is the following:
+
+\itemize{
+\item remove leading and trailing whitespace
+\item change all characters to their lowercase representation
+\item remove all punctuation and control characters
+\item split the string into whitespace-separated tokens
+\item sort the tokens and remove duplicates
+\item join the tokens back together
+\item normalize extended western characters to their ASCII representation
+}
+}
 \note{
-If the entry is a numeric vector, it will be converted to a string character
+If the entry is a numeric, it will be converted to a string character
 }
 

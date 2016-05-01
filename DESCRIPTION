@@ -8,14 +8,9 @@ Description: More about what it does (maybe more than one line)
 License: What license is it under?
 LazyData: TRUE
 License: CC0
-Depends:
+Imports:
     data.table,
-    xtable,
-    stringr,
-    DT,
-    leaflet,
-    xml2,
-    rjson,
-    tidyjson,
-    dplyr
+Depends:
+    magrittr,
+    tidyjson
 RoxygenNote: 5.0.1

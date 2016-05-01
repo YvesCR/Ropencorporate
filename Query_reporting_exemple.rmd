@@ -1,0 +1,185 @@
+---
+title: "Exploration of the Ropencorporate package"
+author: "YCR"
+date: "1 May 2016"
+output: html_document
+---
+
+Exemple of rmd reporting to easily have a look at the result of a query on the opencorporate website.
+
+## Initialisation
+
+First thing first, let's query the data and set up the session.
+
+```{r, echo = F}
+# path
+path <- "C:/YCR Perso/opencorporates/"
+```
+
+We attach the libraries.
+
+```{r warning=FALSE, result = 'hide'}
+library(Ropencorporate, quietly = T)
+library(data.table, quietly = T)
+library(stringr, quietly = T)
+library(DT, quietly = T)
+library(leaflet, quietly = T)
+library(dygraphs, quietly = T)
+library(lubridate, quietly = T, warn.conflicts = F)
+
+```
+
+We choose the following term:
+
+```{r}
+term <- "edf"
+```
+
+To query the database, we use the function `ropencorp`. Without credential, we are limited to the 20 first pages of result.
+
+```{r}
+oc.dt <- Ropencorporate::ropencorp(term, nb.page = 20)
+```
+
+The result we get is a bit messy: The same company could appear under multiple names due to the format use. This is a complex task which require human assistance. Nevertheless, we could use a couple of transformation to clean the name.
+
+A good option is to use [open refine](https://github.com/OpenRefine/OpenRefine/wiki/Clustering-In-Depth) to do this work.
+
+But it is not the point here, so we just use the fingerprint method to simplify the name. For that, we use the `fingerprint.func` function plus a bit of work to keep a non formatted version of the name. 
+
+```{r}
+## What I want: the most frequent occurence of the name
+
+# First, we use the fingerprint method to normalise the name
+oc.dt[, name2 := unlist(lapply(name, fingerprint.func))]
+
+# Taking the fingerprint reduce the number of company names by 10 %
+
+# Now, replace name2 by the top name appearing in term of number, then by the first appearing.
+oc.dt[, freq.name := .N, by = "name"]
+oc.dt[, freq.name2 := max(freq.name), by = "name2"]
+
+# for a subset, select the top name
+oc.dt[, Name := name[max(which(freq.name2 == freq.name))], by = "name2"]
+
+#delete unused rows:
+oc.dt[, freq.name := NULL] ; oc.dt[, freq.name2 := NULL]; oc.dt[, name2 := NULL]
+
+```
+
+We tighten the date variables.
+
+```{r}
+oc.dt[, Creation.date := as.Date(created.at)]
+oc.dt[, Update.date := as.Date(updated.at)]
+oc.dt[, Retrieved.date := as.Date(retrieved.at)]
+oc.dt[, Dissolution.date := as.Date(dissolution.date)]
+```
+
+## Basic overview
+
+Now, let's have a look at the result of the query:
+Number of different companies which have the term, places where the term is the more common, etc..
+
+### Occurences of the name in the query
+
+Which are the entries with the term `r term` appearing the most?
+
+```{r results='asis'}
+num.oc <- dim(oc.dt)[1]
+datatable(oc.dt[, list(Frequency = .N, Percentage = sprintf("%.1f%%", .N / num.oc * 100)), by = "Name"][order(Frequency, decreasing = T)], options = list(pageLength = 10))
+```
+
+### Occurences of the juridictions
+
+Which are the juridictions with the most entries.
+
+```{r}
+datatable(oc.dt[, list(Frequency = .N, Percentage = sprintf("%.1f%%", .N / num.oc * 100)), by = "jurisdiction.code"][order(Frequency, decreasing = T)], options = list(pageLength = 10))
+```
+
+### Most recent apparition
+
+Which are the modt recent companies?
+
+```{r results='asis'}
+datatable(oc.dt[, list(Frequency = .N, Percentage = sprintf("%.1f%%", .N / num.oc * 100)), by = c("Creation.date", "Name")][order(Creation.date, decreasing = T)], options = list(pageLength = 10))
+
+oc.dt[, Creation.date.m := as.Date(format(Creation.date, "01 %m %Y"), "%d %m %Y")]
+oc.dt[, Dissolution.date.m := as.Date(format(Dissolution.date, "01 %m %Y"), "%d %m %Y")]
+
+oc.dt.date0 <- oc.dt[, .N, by = c("Name", "Creation.date.m")][, list(Creation.date = .N), by = c("Creation.date.m")]
+
+# Dissolution dates are incredibly shitty: We keep only the ones inside the boundaries between the first creation and today.
+oc.dt.date1 <- oc.dt[!is.na(Dissolution.date.m) & Dissolution.date.m < Sys.Date() & Dissolution.date.m >=  min(oc.dt.date0[, Creation.date.m]), .N, by = c("Name", "Dissolution.date.m")][, list(Dissolution.date = .N), by = c("Dissolution.date.m")]
+
+oc.dt.date <- merge(oc.dt.date0, oc.dt.date1, by.x = "Creation.date.m"
+                    , by.y = "Dissolution.date.m", all = T)
+
+oc.dt.date[is.na(Creation.date), Creation.date := 0]
+oc.dt.date[is.na(Dissolution.date), Dissolution.date := 0] 
+
+dygraph(oc.dt.date, main = "Creation & dissolution of companies")
+```
+
+### Current status
+
+Which are the most frequent status?
+
+```{r results='asis'}
+datatable(oc.dt[, list(Frequency = .N, Percentage = sprintf("%.1f%%", .N / num.oc * 100)), by = "current.status"][order(Frequency, decreasing = T)], options = list(pageLength = 10))
+```
+
+### Inactive
+
+Number of inactive companies?
+
+```{r results='asis'}
+datatable(oc.dt[, list(Frequency = .N, Percentage = sprintf("%.1f%%", .N / num.oc * 100)), by = "inactive"][order(Frequency, decreasing = T)], options = list(pageLength = 10))
+```
+
+### Branch status
+
+```{r results='asis'}
+datatable(oc.dt[, list(Frequency = .N, Percentage = sprintf("%.1f%%", .N / num.oc * 100)), by = c("branch.status")][order(Frequency, decreasing = T)], options = list(pageLength = 10))
+```
+
+### Company type
+
+```{r results='asis'}
+datatable(oc.dt[, list(Frequency = .N, Percentage = sprintf("%.1f%%", .N / num.oc * 100)), by = "company.type"][order(Frequency, decreasing = T)], options = list(pageLength = 10))
+```
+
+### Create an interactive map
+
+To create a map, we use the dataset `world.states` include in the package.
+
+```{r results='asis'}
+# For the popup version, we create a label.
+display <- oc.dt[, list(frequency = .N, display = paste(.N, " links here:\n <a href='", paste0(opencorporates.url, "'>", Name, collapse = "</a>\n"), "</a>\n")), by = "jurisdiction.code"]
+
+# we add the coordinate of the juridiction
+display.center <- merge(display, world.states, all.x = T, by = "jurisdiction.code")
+
+# get rid of non geocoded queries
+display.center.nomiss <- display.center[!is.na(display) & !is.na(lat)]
+
+# map
+map.leaflet <- leaflet() %>% addTiles() %>%  addMarkers(display.center.nomiss$lng, display.center.nomiss$lat, display.center.nomiss$display,
+    options = popupOptions(closeButton = FALSE))
+map.leaflet
+```
+
+```{r echo = F}
+
+
+# Creation of the final map:
+## Number of companies per country / states
+## + set of link to click to:
+# 
+# # popup version
+# map.leaflet <- leaflet() %>% addTiles() %>%  addPopups(display.center.us$lng, display.center.us$lat, display.center.us$display,
+#     options = popupOptions(closeButton = TRUE))
+# map.leaflet
+
+```
