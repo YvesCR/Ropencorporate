@@ -32,7 +32,7 @@ library(networkD3, quietly = T, warn.conflicts = F)
 We choose the following term:
 
 ```{r}
-term <- "edf"
+term <- "mossack fonseca"
 ```
 
 To query the database, we use the function `ropencorp`. Without credential, we are limited to the 20 first pages of result.
@@ -191,20 +191,20 @@ One simple and excellent thing to do it is to look at company which had been bou
 We currently only look at interactions of more than 2 nodes, aka, at least two sales. Otherzise, the number of nodes is too big.
 
 ```{r}
-# creation of the data frame with target and links data
-links <- merge(prev.dt[!is.na(company.name)], oc.dt
-    , by = c("jurisdiction.code", "company.number")
-    , all.x = T)[!(is.na(name) | is.na(company.name) |
-          company.name == name)][
-    , list(source = name, target = company.name)]
-
-# index of multiple sales companies + cretion of a short links table
-multiple.name <- data.table(table(c(links$source, links$target)))[N>1, as.character(V1)]
-links.short <- links[source %in% multiple.name | target %in% multiple.name]
-
-# Plot
-simpleNetwork(networkData <- data.frame(links.short$source
-    , links.short$target), width = 800, height = 750)
+# For Mossack fontessa, no change of names
+# 
+# # creation of the data frame with target and links data
+# links <- merge(prev.dt[!is.na(company.name)], oc.dt
+#     , by = c("jurisdiction.code", "company.number")
+#     , all.x = T)[!(is.na(name) | is.na(company.name) |
+#           company.name == name)][
+#     , list(source = name, target = company.name)]
+# 
+# # index of multiple sales companies + cretion of a short links table
+# multiple.name <- data.table(table(c(links$source, links$target)))[N>1, as.character(V1)]
+# links.short <- links[source %in% multiple.name | target %in% multiple.name]
+# 
+# # Plot
+# simpleNetwork(networkData <- data.frame(links.short$source
+#     , links.short$target), width = 800, height = 750)
 ```
-
-The only minor point with this method is that we don't know from the graph which one bought the other. But we could see the big clusters of companies. For exemple, for EDF, we could see that EDF energy Group Holding PLC is very active when it comes to modification of names.

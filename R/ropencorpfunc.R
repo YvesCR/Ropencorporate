@@ -12,9 +12,9 @@
 #' @examples
 #'   ropencorp("gold holding", nb.page = 2)
 #'
-ropencorp <- function(term, nb.page = 2, token = NULL, country = NULL) {
+ropencorp <- function(term, nb.page = 20, token = NULL, country = NULL) {
 # term <- "edf" ; nb.page <- 2 ; token <- NULL ; country <- NULL
-# library(stringr); library(xml2); library(rjson) ; library(tidyjson) ; library(dplyr)
+# library(stringr); library(jsonlite)
 
   if(is.null(country)){
 
@@ -27,48 +27,77 @@ ropencorp <- function(term, nb.page = 2, token = NULL, country = NULL) {
   if(!is.null(token)) search.json <- paste0(search.json, "?api_token=", token)
 
   # if no internet connection, return an error
-  suppressWarnings( res.json <- read_json(path = search.json, format = "jsonl") )
+  res.json <- jsonlite::fromJSON(search.json)
 
-  nb.pages <-   res.json %>%
-    spread_values(nb.pages = jstring("results", "total_pages") ) %>%
-    dplyr::select(nb.pages) %>%
-    as.numeric
+  nb.pages <- res.json$results$total_pages
 
-  ### without an API key,I could only go up to 20.
+  ### without an API key, it is only possible to query up to 20.
   if(is.null(token)){
   if(min(nb.pages, nb.page) > 20){nb.pages <- 20
   } else{nb.pages <- min(nb.pages, nb.page)} }
 
-  ##### Final function to query the full dataset:
-  if(nb.pages == 1) {
+  oc.dt <- res.json$results$companies$company[, c("name", "company_number", "jurisdiction_code", "incorporation_date"
+            , "dissolution_date", "company_type", "registry_url", "branch_status"
+            , "inactive", "current_status", "created_at", "updated_at"
+            , "retrieved_at", "opencorporates_url"
+            , "registered_address_in_full", "restricted_for_marketing")]
 
-    oc.dt <- Ropencorporate::scrape.dt(res.json)
+  list.prev <- res.json$results$companies$company$previous_names
 
-  } else { # nb.pages <- 2
-    oc.dt <- data.table::rbindlist(lapply(1:nb.pages, function(x) { # x <- 2
+  prev.dt <- data.table::rbindlist(lapply(1:nrow(oc.dt), function(x) if(nrow(list.prev[[x]]) == 0){
+          oc.dt[x, c("company_number", "jurisdiction_code")]
+   } else { cbind(list.prev[[x]]
+                , oc.dt[x, c("company_number", "jurisdiction_code")])} )
+                , use.names = T, fill = T)
 
-      if(is.null(country)){
-        search.json <- paste0("https://api.opencorporates.com/v0.4/companies/search?q=", term, "&page=", x)
-      } else{
-        search.json <- paste0("https://api.opencorporates.com/v0.4/companies/search?q=", term, "*jurisdiction_code=", country, "&page=", x)
-      }
+  list1 <- list(oc.dt)
+  list2 <- list(prev.dt)
 
-      suppressWarnings( res.json <- read_json(path = search.json, format = "jsonl") )
-      Ropencorporate::scrape.dt(res.json)
+   ##### Final function to query the full dataset:
+   if(nb.pages > 1){ # nb.pages <- 2
 
-    }))
+     for(x in 2:nb.pages) { # x <- 2
+
+       if(is.null(country)){
+         search.json <- paste0("https://api.opencorporates.com/v0.4/companies/search?q=", term, "&page=", x)
+       } else{
+         search.json <- paste0("https://api.opencorporates.com/v0.4/companies/search?q=", term, "*jurisdiction_code=", country, "&page=", x)
+       }
+
+     res.json <- jsonlite::fromJSON(search.json)
+
+     oc.dt <- res.json$results$companies$company[, c("name", "company_number", "jurisdiction_code", "incorporation_date"
+           , "dissolution_date", "company_type", "registry_url", "branch_status"
+           , "inactive", "current_status", "created_at", "updated_at"
+           , "retrieved_at", "opencorporates_url"
+           , "registered_address_in_full", "restricted_for_marketing")]
+
+     list.prev <- res.json$results$companies$company$previous_names
+
+     prev.dt <- data.table::rbindlist(lapply(1:nrow(oc.dt), function(x) if(nrow(list.prev[[x]]) == 0){
+         oc.dt[x, c("company_number", "jurisdiction_code")]
+       } else { cbind(list.prev[[x]]
+                    , oc.dt[x, c("company_number", "jurisdiction_code")])} )
+       , use.names = T, fill = T)
+
+      list1 <- c(list1, list(oc.dt))
+      list2 <- c(list2, list(prev.dt))
+
+    }
+
+     oc.dt <- rbindlist(list1, use.names = T, fill = T)
+     prev.dt <- rbindlist(list2, use.names = T, fill = T)
 
   }
 
   if ("package:data.table" %in% search()){
-  oc.dt
+  list(oc.dt, prev.dt)
   } else{
-      oc.dt <- data.frame(oc.dt)
+    list(data.frame(oc.dt), data.frame(prev.dt))
     }
 
-
 }
-
+#
 #' Fingerprint function to clean the character
 #'
 #' @param x a string.
@@ -90,33 +119,3 @@ ropencorp <- function(term, nb.page = 2, token = NULL, country = NULL) {
 #' @export
 #'
 fingerprint.func <- function(x)  sapply(x, function(y) iconv(paste(sort(unique(str_split(gsub("[[:punct:]]|[[:cntrl:]]", "", tolower(str_trim(y))), " ")[[1]])), collapse = " ")))
-
-#' Main function to scrape the API
-#'
-#' @param x a string to search through the API
-#'
-#' @note This is the core funciton of the package. All the rest is a wrapper for that one
-#'
-#' @export
-#'
-scrape.dt <- function(x) {
-  data.table::data.table( x %>%
-    enter_object("results") %>%
-    enter_object("companies") %>%
-    gather_array %>%
-    enter_object("company") %>%
-    spread_values(name = jstring("name")
-                  , company.number = jstring("company_number")
-                  , jurisdiction.code = jstring("jurisdiction_code")
-                  , incorporation.date = jstring("incorporation_date")
-                  , dissolution.date = jstring("dissolution_date")
-                  , company.type = jstring("company_type")
-                  , registry.url = jstring("registry_url")
-                  , branch.status = jstring("branch_status")
-                  , inactive = jstring("inactive")
-                  , current.status = jstring("current_status")
-                  , created.at = jstring("created_at")
-                  , updated.at = jstring("updated_at")
-                  , retrieved.at = jstring("retrieved_at")
-                  , opencorporates.url = jstring("opencorporates_url") ) )
-}

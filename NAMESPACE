@@ -2,4 +2,3 @@
 
 export(fingerprint.func)
 export(ropencorp)
-export(scrape.dt)

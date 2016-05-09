@@ -4,7 +4,7 @@
 \alias{ropencorp}
 \title{Query opencorporate website}
 \usage{
-ropencorp(term, nb.page = 2, token = NULL, country = NULL)
+ropencorp(term, nb.page = 20, token = NULL, country = NULL)
 }
 \arguments{
 \item{term}{Term to query on the open corporate website}
