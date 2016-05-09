@@ -1,15 +1,14 @@
 Package: Ropencorporate
 Type: Package
-Title: What the Package Does (Title Case)
+Title: R wrapper of the open corporate API
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: Who to complain to <yourfault@somewhere.net>
-Description: More about what it does (maybe more than one line)
-License: What license is it under?
+Author: Yves Crutain[aut, cre]
+Maintainer: Yves Crutain <yves.crutain@gmail.com>
+Description: Allow to query, from the name of a companie, the full set of gazettes links of the open corporate database. As well, a query of the officers is implemented.
 LazyData: TRUE
 License: CC0
 Imports:
-    data.table,
+    data.table
 Depends:
     magrittr,
     tidyjson
