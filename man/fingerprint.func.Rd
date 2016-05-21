@@ -27,5 +27,8 @@ The process that generates the key from a string value is the following:
 }
 \note{
 If the entry is a numeric, it will be converted to a string character
+
+ The returned object is a list of two data.table if the data.table package is attached. Otherwise, it is a list of two data.frame.
+ Here, using the data.table package speed up the script.
 }
 

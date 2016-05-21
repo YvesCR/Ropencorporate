@@ -10,6 +10,7 @@ License: CC0
 Imports:
     data.table
 Depends:
+    R (>= 2.10),
     magrittr,
     tidyjson
 RoxygenNote: 5.0.1
