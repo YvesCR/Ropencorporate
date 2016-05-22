@@ -37,7 +37,7 @@ get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
   }
 
   # if registered account, add the api key
-  if(!is.null(token)) search.json <- paste0(search.json, "?api_token=", token)
+  if(!is.null(token)) search.json <- paste0(search.json, "&page=1?api_token=", token)
 
   # if no internet connection, return an error
   try(res.json <- jsonlite::fromJSON(search.json), silent = T)
@@ -327,10 +327,10 @@ get.comp.number <- function(company.number, jurisdiction.code
 
 
 # loop over the company numbers
-list1 <- lapply(1:length(company.number), function(i) {
+list1 <- lapply(1:length(company.number), function(i) { # i <- 1
 
     # call the app with details
-    search.comp.id <- paste0(call.api.number, "/", jurisdiction.code[i]
+    search.comp.id <- paste0(call.api.number, jurisdiction.code[i]
                              , "/", company.number[i])
 
     # if registered account, add the api key
