@@ -13,15 +13,22 @@ get.comp.number(company.number, jurisdiction.code, token = NULL)
 
 \item{token}{Token for the owner of an opencorporate account}
 }
+\value{
+The returned object is a list of four data.table if the data.table package is attached. Otherwise, it is a list of four data.frame.
+ Here, using the data.table package speed up the script.
+
+\itemize{
+\item company.id.dt: Company details
+\item officers.comp.dt: List of officers. Link with the previous table withcompany.number and jurisdiction.code
+\item identifiers.dt: Identifiers
+\item industry.code.dt: Industry code. Link with the previous tables with company.number and jurisdiction.code
+}
+}
 \description{
 Query opencorporate website to search a given company number in a given jurisdiction
 }
 \details{
 The returned object is two data.table if the data.table package is attached. Otherwise, it is two data.frame.
- Here, using the data.table package speed up the script.
-}
-\note{
-The returned object is a list of four data.table if the data.table package is attached. Otherwise, it is a list of four data.frame.
  Here, using the data.table package speed up the script.
 }
 \examples{

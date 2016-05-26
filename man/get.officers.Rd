@@ -2,7 +2,7 @@
 % Please edit documentation in R/ropencorpfunc.R
 \name{get.officers}
 \alias{get.officers}
-\title{Query opencorporate website}
+\title{Wrapper for the get: officers method of the open corporate API}
 \usage{
 get.officers(term, nb.page = 20, token = NULL, country = NULL,
   ret.score = FALSE)
@@ -10,7 +10,7 @@ get.officers(term, nb.page = 20, token = NULL, country = NULL,
 \arguments{
 \item{term}{Term to query on the open corporate website}
 
-\item{nb.page}{Number of pages to query}
+\item{nb.page}{Number of pages to query. Without token, could be up to 20.}
 
 \item{token}{Token for the owner of an opencorporate account}
 
@@ -18,12 +18,12 @@ get.officers(term, nb.page = 20, token = NULL, country = NULL,
 
 \item{ret.score}{Return the top results by score. Otherwise, the results are returned by alphabetical order.}
 }
-\description{
-Query opencorporate website
-}
-\details{
+\value{
 The returned object is two data.table if the data.table package is attached. Otherwise, it is two data.frame.
  Here, using the data.table package speed up the script.
+}
+\description{
+Wrapper for the get: officers method of the open corporate API
 }
 \note{
 more on the API documentation: https://api.opencorporates.com/documentation/API-Reference#account_status

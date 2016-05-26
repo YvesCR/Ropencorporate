@@ -1,13 +1,14 @@
 #'
-#' Query companies on the opencorporate API
+#' Wrapper for the get: companies method of the open corporate API
 #'
 #' @param term Term to query on the open corporate API
-#' @param nb.page Number of pages to query
+#' @param nb.page Number of pages to query. Without token, could be up to 20 and no more than 100 a day.
 #' @param token Token for the owner of an opencorporate account
-#' @param country List or vector of countries to query
+#' @param country List or vector of countries to query.
 #'
 #' @note The returned object is a list of two data.table if the data.table package is attached. Otherwise, it is a list of two data.frame.
 #'  Here, using the data.table package speed up the script.
+#'  More on the API documentation: https://api.opencorporates.com/documentation/API-Reference#account_status
 #'
 #' @export
 #'
@@ -37,7 +38,7 @@ get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
   }
 
   # if registered account, add the api key
-  if(!is.null(token)) search.json <- paste0(search.json, "&page=1?api_token=", token)
+  if(!is.null(token)) search.json <- paste0(search.json, "&page=1&api_token=", token)
 
   # if no internet connection, return an error
   try(res.json <- jsonlite::fromJSON(search.json), silent = T)
@@ -90,7 +91,7 @@ get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
            }
 
            # if registered account, add the api key
-           if(!is.null(token)) search.json <- paste0(search.json, "?api_token=", token)
+           if(!is.null(token)) search.json <- paste0(search.json, "&api_token=", token)
 
          res.json <- jsonlite::fromJSON(search.json)
 
@@ -131,9 +132,9 @@ get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
   } else {print("Connection error.")}
 }
 #
-#' Fingerprint function to clean the character
+#' Function to clean a given string based on the fingerprint method.
 #'
-#' @param x a string.
+#' @param x a vector of string.
 #'
 #' @details The process that generates the key from a string value is the following:
 #'
@@ -148,9 +149,6 @@ get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
 #' }
 #'
 #' @note If the entry is a numeric, it will be converted to a string character
-#'
-#'  The returned object is a list of two data.table if the data.table package is attached. Otherwise, it is a list of two data.frame.
-#'  Here, using the data.table package speed up the script.
 #'
 #' @export
 #'
@@ -177,15 +175,16 @@ fingerprint.func <- function(x)
             )
         )
 
-#'Query opencorporate website
+#'
+#' Wrapper for the get: officers method of the open corporate API
 #'
 #' @param term Term to query on the open corporate website
-#' @param nb.page Number of pages to query
+#' @param nb.page Number of pages to query. Without token, could be up to 20.
 #' @param token Token for the owner of an opencorporate account
 #' @param country List or vector of countries to query
 #' @param ret.score Return the top results by score. Otherwise, the results are returned by alphabetical order.
 #'
-#' @details The returned object is two data.table if the data.table package is attached. Otherwise, it is two data.frame.
+#' @return The returned object is two data.table if the data.table package is attached. Otherwise, it is two data.frame.
 #'  Here, using the data.table package speed up the script.
 #'
 #' @note more on the API documentation: https://api.opencorporates.com/documentation/API-Reference#account_status
@@ -196,7 +195,7 @@ fingerprint.func <- function(x)
 #'   get.officers("Vincent de Rivaz", nb.page = 2)
 #'
 get.officers <- function(term, nb.page = 20, token = NULL, country = NULL, ret.score = FALSE) {
-  # term <- "Vincent de Rivaz" ; nb.page <- 3 ; token <- NULL ; country <- NULL
+  # term <- "Toni Galli" ; nb.page <- 3 ; token <- NULL ; country <- NULL
   # library(stringr); library(jsonlite)
 
   officers.query <- "https://api.opencorporates.com/v0.4/officers/search?q="
@@ -215,7 +214,7 @@ get.officers <- function(term, nb.page = 20, token = NULL, country = NULL, ret.s
   }
 
   # if registered account, add the api key
-  if(!is.null(token)) search.json <- paste0(search.json, "?api_token=", token)
+  if(!is.null(token)) search.json <- paste0(search.json, "&api_token=", token)
 
   # if no internet connection, return an error
   try(res.json <- jsonlite::fromJSON(search.json), silent = T)
@@ -292,8 +291,15 @@ get.officers <- function(term, nb.page = 20, token = NULL, country = NULL, ret.s
 #' @details The returned object is two data.table if the data.table package is attached. Otherwise, it is two data.frame.
 #'  Here, using the data.table package speed up the script.
 #'
-#' @note The returned object is a list of four data.table if the data.table package is attached. Otherwise, it is a list of four data.frame.
+#' @return The returned object is a list of four data.table if the data.table package is attached. Otherwise, it is a list of four data.frame.
 #'  Here, using the data.table package speed up the script.
+#'
+#' \itemize{
+#' \item company.id.dt: Company details
+#' \item officers.comp.dt: List of officers. Link with the previous table withcompany.number and jurisdiction.code
+#' \item identifiers.dt: Identifiers
+#' \item industry.code.dt: Industry code. Link with the previous tables with company.number and jurisdiction.code
+#' }
 #'
 #' @export
 #'
@@ -325,28 +331,30 @@ get.comp.number <- function(company.number, jurisdiction.code
   if(length(company.number) != length(jurisdiction.code))
     stop("company.number and jurisdiction.code should have the same length.")
 
-
 # loop over the company numbers
-list1 <- lapply(1:length(company.number), function(i) { # i <- 1
+list1 <- lapply(1:length(company.number), function(i) { # i <- 217
 
     # call the app with details
     search.comp.id <- paste0(call.api.number, jurisdiction.code[i]
                              , "/", company.number[i])
 
     # if registered account, add the api key
-    if(!is.null(token)) search.comp.id <- paste0(search.comp.id, "?api_token=", token)
+    if(!is.null(token)) search.comp.id <- paste0(search.comp.id, "&api_token=", token)
 
     try(res.json.comp <- jsonlite::fromJSON(search.comp.id), silent = T)
-    if (!exists("res.json.comp"))
-        stop("wrong call. Check company.number.")
-
-    # details of the company
-    details.company <- res.json.comp$results$company
-
+    if (!exists("res.json.comp")){
+        warning("wrong call. Check company.number: ", company.number[i]
+             , " jurisdiction code:", jurisdiction.code[i])
+      details.company <- list(source = NULL)
+    } else{
+      # details of the company
+      details.company <- res.json.comp$results$company
+    }
   } )
 
   # create a dataframe with one value per id
-  list.df.var.uniq <- lapply(list1, function(x)
+  # what if source is missing?
+  list.df.var.uniq <- lapply(list1, function(x) # x <- list1[[217]]
     data.frame(t(unlist(x[var.comp.numb]))
                , t(unlist(x$source[var.source]))
                , stringsAsFactors = F))

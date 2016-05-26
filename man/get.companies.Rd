@@ -2,25 +2,26 @@
 % Please edit documentation in R/ropencorpfunc.R
 \name{get.companies}
 \alias{get.companies}
-\title{Query companies on the opencorporate API}
+\title{Wrapper for the get: companies method of the open corporate API}
 \usage{
 get.companies(term, nb.page = 20, token = NULL, country = NULL)
 }
 \arguments{
 \item{term}{Term to query on the open corporate API}
 
-\item{nb.page}{Number of pages to query}
+\item{nb.page}{Number of pages to query. Without token, could be up to 20 and no more than 100 a day.}
 
 \item{token}{Token for the owner of an opencorporate account}
 
-\item{country}{List or vector of countries to query}
+\item{country}{List or vector of countries to query.}
 }
 \description{
-Query companies on the opencorporate API
+Wrapper for the get: companies method of the open corporate API
 }
 \note{
 The returned object is a list of two data.table if the data.table package is attached. Otherwise, it is a list of two data.frame.
  Here, using the data.table package speed up the script.
+ More on the API documentation: https://api.opencorporates.com/documentation/API-Reference#account_status
 }
 \examples{
   get.companies('gold holding', nb.page = 2)

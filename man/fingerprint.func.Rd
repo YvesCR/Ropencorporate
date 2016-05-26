@@ -2,15 +2,15 @@
 % Please edit documentation in R/ropencorpfunc.R
 \name{fingerprint.func}
 \alias{fingerprint.func}
-\title{Fingerprint function to clean the character}
+\title{Function to clean a given string based on the fingerprint method.}
 \usage{
 fingerprint.func(x)
 }
 \arguments{
-\item{x}{a string.}
+\item{x}{a vector of string.}
 }
 \description{
-Fingerprint function to clean the character
+Function to clean a given string based on the fingerprint method.
 }
 \details{
 The process that generates the key from a string value is the following:
@@ -27,8 +27,5 @@ The process that generates the key from a string value is the following:
 }
 \note{
 If the entry is a numeric, it will be converted to a string character
-
- The returned object is a list of two data.table if the data.table package is attached. Otherwise, it is a list of two data.frame.
- Here, using the data.table package speed up the script.
 }
 
