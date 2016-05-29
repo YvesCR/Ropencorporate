@@ -16,7 +16,7 @@
 #'   get.companies('gold holding', nb.page = 2)
 #'
 get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
-# term <- "edf" ; nb.page <- 20 ; token <- NULL ; country <- NULL
+# term <- "edf" ; nb.page <- Inf ; token <- NULL ; country <- NULL
 
   name.var <- c("name", "company_number", "jurisdiction_code", "incorporation_date"
       , "dissolution_date", "company_type", "registry_url", "branch_status"
@@ -27,6 +27,8 @@ get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
   call.func.api <- "https://api.opencorporates.com/v0.4/companies/search?q="
 
   var.prev <- c("company_number", "jurisdiction_code")
+
+  class.list.keep <- c("character", "integer", "logical", "Date", "numeric")
 
   # replace space by +
   term <- gsub(pattern = " ", replacement = "+", stringr::str_trim(term))
@@ -66,9 +68,10 @@ get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
                     oc.dt[x, var.prev]
                 } else if (nrow(list.prev[[x]]) == 0 ){
                     oc.dt[x, var.prev]
-                } else { cbind(list.prev[[x]]
-            , oc.dt[x, var.prev]
-            , stringsAsFactors = F)}  )
+                } else { prev.step <- cbind(list.prev[[x]]
+                      , oc.dt[x, var.prev]
+                      , stringsAsFactors = F)
+                prev.step[, sapply(prev.step, class) %in% class.list.keep] }  )
             , use.names = T, fill = T)
 
       data.table::setnames(oc.dt, names(oc.dt), gsub(pattern = "[ ]|[_]", ".",
@@ -82,8 +85,7 @@ get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
        ##### Final function to query the full dataset:
        if(nb.pages > 1){ # nb.pages <- 2
 
-         for(x in 2:nb.pages) { # x <- 2 ; x <- x + 1
-
+         for(x in 2:nb.pages) { # x <- 1 ; x <- x + 1
            if(is.null(country)){
              search.json <- paste0(call.func.api, term, "&page=", x)
            } else{
@@ -100,14 +102,17 @@ get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
          list.prev <- res.json$results$companies$company$previous_names
 
          prev.dt <- data.table::rbindlist(lapply(1:nrow(oc.dt)
-                 , function(x) if(is.null(nrow(list.prev[[x]]))){
+                 , function(x)
+                    if(is.null(nrow(list.prev[[x]]))){ # x <- 4
                    oc.dt[x, var.prev]
                  } else if (nrow(list.prev[[x]]) == 0 ){
                    oc.dt[x, var.prev]
-                 } else { cbind(list.prev[[x]]
-                                , oc.dt[x, var.prev]
-                                , stringsAsFactors = F)}  )
+                 } else { prev.step <- cbind(list.prev[[x]]
+                   , oc.dt[x, var.prev]
+                   , stringsAsFactors = F)
+                  prev.step[, sapply(prev.step, class) %in% class.list.keep] } )
           , use.names = T, fill = T)
+
          data.table::setnames(oc.dt, names(oc.dt), gsub(pattern = "[ ]|[_]", ".",
                                     names(oc.dt)))
          data.table::setnames(prev.dt, names(prev.dt), gsub(pattern = "[ ]|[_]", ".",
@@ -124,9 +129,9 @@ get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
       }
 
       if ("package:data.table" %in% search()){
-      list(oc.dt = oc.dt, prev.dt = prev.dt)
+        res.oc <- list(oc.dt = oc.dt, prev.dt = prev.dt)
       } else{
-        list(oc.dt = data.frame(oc.dt), prev.dt = data.frame(prev.dt))
+        res.oc <- list(oc.dt = data.frame(oc.dt), prev.dt = data.frame(prev.dt))
       }
     }
   } else {print("Connection error.")}
@@ -310,7 +315,6 @@ get.comp.number <- function(company.number, jurisdiction.code
         , token = NULL) {
     # company.number <- c("23286336", "30760997")
     # jurisdiction.code <- c("ro", "ro"); token <- NULL
-    # library(stringr); library(jsonlite)
 
   # path call get company number:
   call.api.number <- "https://api.opencorporates.com/v0.4/companies/"
@@ -332,7 +336,7 @@ get.comp.number <- function(company.number, jurisdiction.code
     stop("company.number and jurisdiction.code should have the same length.")
 
 # loop over the company numbers
-list1 <- lapply(1:length(company.number), function(i) { # i <- 217
+list1 <- lapply(1:length(company.number), function(i) { # i <- 1
 
     # call the app with details
     search.comp.id <- paste0(call.api.number, jurisdiction.code[i]
@@ -343,7 +347,7 @@ list1 <- lapply(1:length(company.number), function(i) { # i <- 217
 
     try(res.json.comp <- jsonlite::fromJSON(search.comp.id), silent = T)
     if (!exists("res.json.comp")){
-        warning("wrong call. Check company.number: ", company.number[i]
+        warning("wrong call. Check API limit or company.number: ", company.number[i]
              , " jurisdiction code:", jurisdiction.code[i])
       details.company <- list(source = NULL)
     } else{
@@ -354,10 +358,12 @@ list1 <- lapply(1:length(company.number), function(i) { # i <- 217
 
   # create a dataframe with one value per id
   # what if source is missing?
-  list.df.var.uniq <- lapply(list1, function(x) # x <- list1[[217]]
-    data.frame(t(unlist(x[var.comp.numb]))
-               , t(unlist(x$source[var.source]))
-               , stringsAsFactors = F))
+  list.df.var.uniq <- lapply(list1, function(x) {# x <- list1[[2]]
+    data.frame(t(unlist(x[var.comp.numb]) )
+               , t(unlist(x$source[var.source]) )
+               , stringsAsFactors = F)
+    })
+
   company.id.dt <- data.table::rbindlist(list.df.var.uniq, use.names = T, fill = T)
 
   # Clean the name of the table
