@@ -165,7 +165,7 @@ fingerprint.func <- function(x)
                 paste(
                   sort(
                     unique(
-                      stringr::str_split(
+                      strsplit(
                         gsub("[[:punct:]]|[[:cntrl:]]", ""
                              , tolower(
                                stringr::str_trim(y)
