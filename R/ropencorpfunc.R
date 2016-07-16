@@ -16,7 +16,7 @@
 #'   get.companies('gold holding', nb.page = 2)
 #'
 get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
-# term <- "edf" ; nb.page <- Inf ; token <- NULL ; country <- NULL
+# term <- "edf" ; nb.page <- 2 ; token <- NULL ; country <- NULL
 
   name.var <- c("name", "company_number", "jurisdiction_code", "incorporation_date"
       , "dissolution_date", "company_type", "registry_url", "branch_status"
@@ -40,13 +40,25 @@ get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
   }
 
   # if registered account, add the api key
-  if(!is.null(token)) search.json <- paste0(search.json, "&page=1&api_token=", token)
+  if(!is.null(token)) {
+    search.json <- paste0(search.json, "&page=1&api_token=", token)
+    try(get.status <- httr::GET(paste0("https://api.opencorporates.com/v0.4/account_status?api_token=", token)), silent = T)
+    
+    if(exists("get.status")){
+      account.status <- jsonlite::fromJSON(httr::content(get.status, "text"))
+      print(paste0("Calls made today:", account.status$results$account_status$usage$today))
+      print(paste0("Calls made this month:", account.status$results$account_status$usage$this_month))
+      print(paste0("Calls remaining today:", account.status$results$account_status$calls_remaining$today))
+      print(paste0("Calls remaining this month:", account.status$results$account_status$calls_remaining$this_month))
+    }
+  }
 
   # if no internet connection, return an error
-  try(res.json <- jsonlite::fromJSON(search.json), silent = T)
+  try(get.id <- httr::GET(search.json), silent = T)
+  
+  if(exists("get.id")){
 
-  if(exists("res.json")){
-
+    res.json <- jsonlite::fromJSON(httr::content(get.id, "text"))
     nb.pages <- res.json$results$total_pages
 
     if(nb.pages == 0){
@@ -55,8 +67,8 @@ get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
 
       ### without an API key, it is only possible to query up to 20.
       if(is.null(token)){
-        if(min(nb.pages, nb.page) > 20){nb.pages <- 20
-      } else{nb.pages <- min(nb.pages, nb.page)} }
+        if(min(nb.pages, nb.page) > 20) nb.pages.fin <- 20
+      } else{nb.pages.fin <- min(nb.pages, nb.page)}
 
       oc.dt <- res.json$results$companies$company[, name.var]
 
@@ -81,58 +93,67 @@ get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
 
       list1 <- list(oc.dt)
       list2 <- list(prev.dt)
+      
+      page.num <- 1
+      ##### Final function to query the full dataset:
+      if(nb.pages.fin > 1){ # nb.pages <- 2
+        while(get.id$status_code == 200 & page.num < nb.pages.fin) { # page.num <- 1 ;
+          page.num <- page.num + 1
+          search.json <- NULL ; get.id <- NULL
+          if(is.null(country)){
+            search.json <- paste0(call.func.api, term, "&page=", page.num)
+          } else{
+            search.json <- paste0(call.func.api, term, "*jurisdiction_code=", country, "&page=", page.num)
+          }
+          # if registered account, add the api key
+          if(!is.null(token)) search.json <- paste0(search.json, "&api_token=", token)
 
-       ##### Final function to query the full dataset:
-       if(nb.pages > 1){ # nb.pages <- 2
-
-         for(x in 2:nb.pages) { # x <- 1 ; x <- x + 1
-           if(is.null(country)){
-             search.json <- paste0(call.func.api, term, "&page=", x)
-           } else{
-             search.json <- paste0(call.func.api, term, "*jurisdiction_code=", country, "&page=", x)
-           }
-
-           # if registered account, add the api key
-           if(!is.null(token)) search.json <- paste0(search.json, "&api_token=", token)
-
-         res.json <- jsonlite::fromJSON(search.json)
-
-         oc.dt <- res.json$results$companies$company[ , name.var]
-
-         list.prev <- res.json$results$companies$company$previous_names
-
-         prev.dt <- data.table::rbindlist(lapply(1:nrow(oc.dt)
-                 , function(x)
-                    if(is.null(nrow(list.prev[[x]]))){ # x <- 4
+          try(get.id <- httr::GET(search.json))
+          if(get.id$status_code == 200) {
+            res.json <- jsonlite::fromJSON(httr::content(get.id, "text"))
+             
+            oc.dt <- res.json$results$companies$company[ , name.var]
+  
+            list.prev <- res.json$results$companies$company$previous_names
+  
+            prev.dt <- data.table::rbindlist(lapply(1:nrow(oc.dt)
+                , function(x)
+                  if(is.null(nrow(list.prev[[x]]))){ # x <- 4
                    oc.dt[x, var.prev]
-                 } else if (nrow(list.prev[[x]]) == 0 ){
-                   oc.dt[x, var.prev]
-                 } else { prev.step <- cbind(list.prev[[x]]
-                   , oc.dt[x, var.prev]
-                   , stringsAsFactors = F)
-                  prev.step[, sapply(prev.step, class) %in% class.list.keep] } )
-          , use.names = T, fill = T)
+                  } else if (nrow(list.prev[[x]]) == 0 ){
+                    oc.dt[x, var.prev]
+                  } else { prev.step <- cbind(list.prev[[x]]
+                      , oc.dt[x, var.prev]
+                      , stringsAsFactors = F)
+                    prev.step[, sapply(prev.step, class) %in% class.list.keep] 
+                   }
+                )
+              , use.names = T, fill = T)
+  
+            data.table::setnames(oc.dt, names(oc.dt)
+              , gsub(pattern = "[ ]|[_]", ".", names(oc.dt)))
+            data.table::setnames(prev.dt, names(prev.dt)
+              , gsub(pattern = "[ ]|[_]", ".", names(prev.dt)))
 
-         data.table::setnames(oc.dt, names(oc.dt), gsub(pattern = "[ ]|[_]", ".",
-                                    names(oc.dt)))
-         data.table::setnames(prev.dt, names(prev.dt), gsub(pattern = "[ ]|[_]", ".",
-                                            names(prev.dt)))
-
-          list1 <- c(list1, list(oc.dt))
-          list2 <- c(list2, list(prev.dt))
-
+            list1[[page.num]] <- oc.dt
+            list2[[page.num]] <- prev.dt
+            
+          }
         }
-
-         oc.dt <- data.table::rbindlist(list1, use.names = T, fill = T)
-         prev.dt <- data.table::rbindlist(list2, use.names = T, fill = T)
-
       }
 
-      if ("package:data.table" %in% search()){
+      if(page.num != nb.pages.fin) warning(paste0(page.num, "Pages loaded",
+                    " over ", nb.pages, " available. Check for issues") )
+
+      oc.dt <- data.table::rbindlist(list1, use.names = T, fill = T)
+      prev.dt <- data.table::rbindlist(list2, use.names = T, fill = T)
+
+    }
+
+    if ("package:data.table" %in% search()){
         res.oc <- list(oc.dt = oc.dt, prev.dt = prev.dt)
-      } else{
+    } else{
         res.oc <- list(oc.dt = data.frame(oc.dt), prev.dt = data.frame(prev.dt))
-      }
     }
   } else {print("Connection error.")}
 }
@@ -200,8 +221,7 @@ fingerprint.func <- function(x)
 #'   get.officers("Vincent de Rivaz", nb.page = 2)
 #'
 get.officers <- function(term, nb.page = 20, token = NULL, country = NULL, ret.score = FALSE) {
-  # term <- "Toni Galli" ; nb.page <- 3 ; token <- NULL ; country <- NULL
-  # library(stringr); library(jsonlite)
+  # term <- "Vincent de Rivaz" ; nb.page <- 2 ; token <- NULL ; country <- NULL
 
   officers.query <- "https://api.opencorporates.com/v0.4/officers/search?q="
   var.officers <- c("id", "uid"
@@ -218,14 +238,26 @@ get.officers <- function(term, nb.page = 20, token = NULL, country = NULL, ret.s
     search.json <- paste0(officers.query, term, "&jurisdiction_code=", country)
   }
 
-  # if registered account, add the api key
-  if(!is.null(token)) search.json <- paste0(search.json, "&api_token=", token)
-
+  # if registered account, add the api key and check the account status
+  if(!is.null(token)) {
+    search.json <- paste0(search.json, "&api_token=", token)
+    try(get.status <- httr::GET(paste0("https://api.opencorporates.com/v0.4/account_status?api_token=", token)), silent = T)
+    
+    if(exists("get.status")){
+      account.status <- jsonlite::fromJSON(httr::content(get.status, "text"))
+      print(paste0("Calls made today:", account.status$results$account_status$usage$today))
+      print(paste0("Calls made this month:", account.status$results$account_status$usage$this_month))
+      print(paste0("Calls remaining today:", account.status$results$account_status$calls_remaining$today))
+      print(paste0("Calls remaining this month:", account.status$results$account_status$calls_remaining$this_month))
+    }
+  }
+  
   # if no internet connection, return an error
-  try(res.json <- jsonlite::fromJSON(search.json), silent = T)
-
-  if(exists("res.json")){
-
+  try(get.id <- httr::GET(search.json), silent = T)
+  
+  if(exists("get.id")){
+    
+    res.json <- jsonlite::fromJSON(httr::content(get.id, "text"))
     nb.pages <- res.json$results$total_pages
 
     if(nb.pages == 0){
@@ -234,8 +266,8 @@ get.officers <- function(term, nb.page = 20, token = NULL, country = NULL, ret.s
 
       ### without an API key, it is only possible to query up to 20.
       if(is.null(token)){
-        if(min(nb.pages, nb.page) > 20){nb.pages <- 20
-        } else{nb.pages <- min(nb.pages, nb.page)} }
+        if(min(nb.pages, nb.page) > 20) nb.pages.fin <- 20
+        } else{nb.pages.fin <- min(nb.pages, nb.page)}
 
       off.dt <- res.json$results$officers$officer[, var.officers]
       comp.dt <- data.frame(company.name = res.json$results$officers$officer$company$name
@@ -246,30 +278,38 @@ get.officers <- function(term, nb.page = 20, token = NULL, country = NULL, ret.s
 
       list1 <- list(data.table::data.table(off.dt, comp.dt))
 
+      page.num <- 1
       ##### Final function to query the full dataset:
-      if(nb.pages > 1){ # nb.pages <- 2
-
-        for(x in 2:nb.pages) { # x <- 2 ; x <- x + 1
+      if(nb.pages.fin > 1){ # nb.pages <- 2
+        while(get.id$status_code == 200 & page.num < nb.pages.fin) { # page.num <- 1 ;
+          page.num <- page.num + 1
+          search.json <- NULL ; get.id <- NULL
           if(is.null(country)){
-            search.json <- paste0(officers.query, term, "&page=", x)
+            search.json <- paste0(officers.query, term, "&page=", page.num)
           } else{
-            search.json <- paste0(officers.query, term, "&jurisdiction_code=", country, "&page=", x)
+            search.json <- paste0(officers.query, term
+              , "&jurisdiction_code=", country, "&page=", page.num)
           }
+          
+          # if registered account, add the api key
+          if(!is.null(token)) search.json <- paste0(search.json, "&api_token=", token)
+          
+          try(get.id <- httr::GET(search.json))
+          if(get.id$status_code == 200) {
+            res.json <- jsonlite::fromJSON(httr::content(get.id, "text"))
 
-          res.json <- jsonlite::fromJSON(search.json)
-
-          off.dt <- res.json$results$officers$officer[, var.officers]
-          comp.dt <- data.frame(company.name = res.json$results$officers$officer$company$name
-              , company_number = res.json$results$officers$officer$company$company_number
-              , company.jurisdiction_code = res.json$results$officers$officer$company$jurisdiction_code
-              , company.opencorporates_url = res.json$results$officers$officer$company$opencorporates_url
-              , stringsAsFactors = F)
-
-          list1 <- c(list1, list(data.table::data.table(off.dt, comp.dt)))
-
+            off.dt <- res.json$results$officers$officer[, var.officers]
+            comp.dt <- data.frame(company.name = res.json$results$officers$officer$company$name
+                , company_number = res.json$results$officers$officer$company$company_number
+                , company.jurisdiction_code = res.json$results$officers$officer$company$jurisdiction_code
+                , company.opencorporates_url = res.json$results$officers$officer$company$opencorporates_url
+                , stringsAsFactors = F)
+            # list1.1 <- list1
+            list1[[page.num]] <- data.table::data.table(off.dt, comp.dt)
+          }
         }
-
       }
+      
       officers.dt <- data.table::rbindlist(list1, use.names = T, fill = T)
 
       # Clean the name of the table
@@ -278,7 +318,6 @@ get.officers <- function(term, nb.page = 20, token = NULL, country = NULL, ret.s
 
       if ("package:data.table" %in% search()){
         officers.dt = officers.dt
-
       } else{
         officers.dt = data.frame(officers.dt)
       }
@@ -309,12 +348,12 @@ get.officers <- function(term, nb.page = 20, token = NULL, country = NULL, ret.s
 #' @export
 #'
 #' @examples
-#'    get.comp.number(c("23286336", "30760997"), c("ro", "ro"))
+#'    get.comp.number(c("02228297", "30760997"), c("gb", "ro"))
 #'
 get.comp.number <- function(company.number, jurisdiction.code
         , token = NULL) {
-    # company.number <- c("23286336", "30760997")
-    # jurisdiction.code <- c("ro", "ro"); token <- NULL
+    # company.number <- c("02228297", "30760997")
+    # jurisdiction.code <- c("gb", "ro"); token <- NULL
 
   # path call get company number:
   call.api.number <- "https://api.opencorporates.com/v0.4/companies/"
@@ -335,85 +374,107 @@ get.comp.number <- function(company.number, jurisdiction.code
   if(length(company.number) != length(jurisdiction.code))
     stop("company.number and jurisdiction.code should have the same length.")
 
-# loop over the company numbers
-list1 <- lapply(1:length(company.number), function(i) { # i <- 1
+  # create all the query at once:
+  search.comp.id <- paste0(call.api.number, jurisdiction.code
+                           , "/", company.number)
+  
+  # if registered account, add the api key
+  if(!is.null(token)) search.comp.id <- paste0(search.comp.id
+       , "&api_token=", token)
 
-    # call the app with details
-    search.comp.id <- paste0(call.api.number, jurisdiction.code[i]
-                             , "/", company.number[i])
+  # initialise the iteration
+  item.num <- 0; item.op.num <- 0 ; miss.item <- NULL; ind.cl.num <- 0
+  item.id.num <- 0; item.of.num <- 0
+  list1 <- list(); list2 <- list(); list3 <- list(); list4 <- list()
+  
+  # loop over the company numbers:
+  # if ok, stock; if not, don't
+  while(item.num < length(company.number)){
+    item.num <- item.num + 1
+    get.id <- NULL ; res.json.comp <- NULL
+    
+    # if no internet connection, return an error
+    try(get.id <- httr::GET(search.comp.id[item.num]), silent = T)
+    if(exists("get.id") & get.id$status_code == 200){
+    
+      item.op.num <- item.op.num + 1
+      res.json.comp <- jsonlite::fromJSON(httr::content(get.id, "text"))
+      small.get <- res.json.comp$results$company
+      list1[[item.op.num]] <- data.frame(t(unlist(small.get[var.comp.numb]) )
+                 , t(unlist(small.get$source[var.source]) )
+                 , stringsAsFactors = F)
+      
+      if(length(small.get$industry_codes) != 0){
+        ind.cl.num <- ind.cl.num + 1
+        list2[[ind.cl.num]] <- cbind(small.get$industry_codes$industry_code
+             , company_number = small.get$company_number
+             , jurisdiction_code = small.get$jurisdiction_code
+             , stringsAsFactors = F)
+      }
+      
+      if(length(small.get$identifiers) != 0){
+        item.id.num <- item.id.num + 1
+        list3[[item.id.num]] <- cbind(small.get$identifiers$identifier
+            , company_number = small.get$company_number
+            , jurisdiction_code = small.get$jurisdiction_code
+            , stringsAsFactors = F)
+      }
+      
+      if(length(small.get$officers$officer) != 0){
+        item.of.num <- item.of.num + 1
+        list4[[item.of.num]] <- cbind(small.get$officers$officer
+            , company_number = small.get$company_number
+            , jurisdiction_code = small.get$jurisdiction_code
+            , stringsAsFactors = F)
+      }
 
-    # if registered account, add the api key
-    if(!is.null(token)) search.comp.id <- paste0(search.comp.id, "&api_token=", token)
+    } else{miss.item <- c(miss.item, item.num)}
+  }
+  
+  if(!is.null(miss.item))
+    warning(paste0("items "
+      , paste(miss.item, collapse = ", "), " not loaded"))
 
-    try(res.json.comp <- jsonlite::fromJSON(search.comp.id), silent = T)
-    if (!exists("res.json.comp")){
-        warning("wrong call. Check API limit or company.number: ", company.number[i]
-             , " jurisdiction code:", jurisdiction.code[i])
-      details.company <- list(source = NULL)
-    } else{
-      # details of the company
-      details.company <- res.json.comp$results$company
-    }
-  } )
+  # create the data frames:
+  # company.id.dt
+  if(length(list1) != 0){ 
+    company.id.dt <- data.table::rbindlist(list1, use.names = T, fill = T)
 
-  # create a dataframe with one value per id
-  # what if source is missing?
-  list.df.var.uniq <- lapply(list1, function(x) {# x <- list1[[2]]
-    data.frame(t(unlist(x[var.comp.numb]) )
-               , t(unlist(x$source[var.source]) )
-               , stringsAsFactors = F)
-    })
-
-  company.id.dt <- data.table::rbindlist(list.df.var.uniq, use.names = T, fill = T)
-
-  # Clean the name of the table
-  data.table::setnames(company.id.dt, names(company.id.dt)
+    # Clean the name of the table
+    data.table::setnames(company.id.dt, names(company.id.dt)
            , gsub("[ ]|[_]", ".", names(company.id.dt)))
-
+  } else{ company.id.dt <- NULL}
+    
   # industry_codes:
-  ind.c.l <- lapply(list1, function(x) if(length(x$industry_codes) != 0)
-    cbind(x$industry_codes$industry_code
-          , company_number = x$company_number
-          , jurisdiction_code = x$jurisdiction_code
-          , stringsAsFactors = F))
-
-  industry.code.dt <- data.table::rbindlist(ind.c.l[!unlist(lapply(ind.c.l
-        , is.null))], use.names = T, fill = T)
-
-  # Clean the name of the table
-  if(ncol(industry.code.dt) != 0)
-  data.table::setnames(industry.code.dt, names(industry.code.dt)
-           , gsub("[ ]|[_]", ".", names(industry.code.dt)))
-
+  if(length(list2) != 0){ 
+    industry.code.dt <- data.table::rbindlist(list2, use.names = T, fill = T)
+    
+    # Clean the name of the table
+      data.table::setnames(industry.code.dt, names(industry.code.dt)
+             , gsub("[ ]|[_]", ".", names(industry.code.dt)))
+    
+  } else{ industry.code.dt <- NULL}
+  
   # identifiers:
-  ind.ident <- lapply(list1, function(x) if(length(x$identifiers) != 0)
-    cbind(x$identifiers$identifier
-          , company_number = x$company_number
-          , jurisdiction_code = x$jurisdiction_code
-          , stringsAsFactors = F))
-
-  identifiers.dt <- data.table::rbindlist(ind.ident[!unlist(lapply(ind.ident
-         , is.null))], use.names = T, fill = T)
-
-  # Clean the name of the table
-  if(ncol(identifiers.dt) != 0)
-  data.table::setnames(identifiers.dt, names(identifiers.dt)
-           , gsub("[ ]|[_]", ".", names(identifiers.dt)))
-
+  if(length(list3) != 0){ 
+    identifiers.dt <- data.table::rbindlist(list3, use.names = T, fill = T)
+    
+    # Clean the name of the table
+    data.table::setnames(identifiers.dt, names(identifiers.dt)
+                         , gsub("[ ]|[_]", ".", names(identifiers.dt)))
+    
+  } else{ identifiers.dt <- NULL}
+  
   # officers:
-  ind.oficers <- lapply(list1, function(x) if(length(x$officers) != 0)
-    cbind(x$officers$officer
-          , company_number = x$company_number
-          , jurisdiction_code = x$jurisdiction_code
-          , stringsAsFactors = F))
-
-  officers.comp.dt <- data.table::rbindlist(ind.oficers[!unlist(lapply(ind.oficers
-                 , is.null))], use.names = T, fill = T)
-
-  if(ncol(officers.comp.dt) != 0)
+  if(length(list4) != 0){ 
+    officers.comp.dt <- data.table::rbindlist(list4, use.names = T, fill = T)
+    
+    # Clean the name of the table
     data.table::setnames(officers.comp.dt, names(officers.comp.dt)
-             , gsub("[ ]|[_]", ".", names(officers.comp.dt)))
-
+                         , gsub("[ ]|[_]", ".", names(officers.comp.dt)))
+    
+  } else{ officers.comp.dt <- NULL}
+  
   if ("package:data.table" %in% search()){
     company.out.l <- list(company.id.dt = company.id.dt, officers.comp.dt = officers.comp.dt
                       , identifiers.dt = identifiers.dt, industry.code.dt = industry.code.dt)

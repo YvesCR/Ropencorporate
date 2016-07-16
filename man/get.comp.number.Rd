@@ -32,7 +32,7 @@ The returned object is two data.table if the data.table package is attached. Oth
  Here, using the data.table package speed up the script.
 }
 \examples{
-   get.comp.number(c("23286336", "30760997"), c("ro", "ro"))
+   get.comp.number(c("02228297", "30760997"), c("gb", "ro"))
 
 }
 
