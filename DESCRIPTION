@@ -14,5 +14,6 @@ Depends:
     R (>= 2.10),
     magrittr,
     tidyjson,
-    httr
+    httr,
+    stringr
 RoxygenNote: 5.0.1
