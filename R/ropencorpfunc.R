@@ -67,7 +67,8 @@ get.companies <- function(term, nb.page = 20, token = NULL, country = NULL) {
 
       ### without an API key, it is only possible to query up to 20.
       if(is.null(token)){
-        if(min(nb.pages, nb.page) > 20) nb.pages.fin <- 20
+        if(min(nb.pages, nb.page) > 20) {nb.pages.fin <- 20
+        } else nb.pages.fin <- nb.page
       } else{nb.pages.fin <- min(nb.pages, nb.page)}
 
       oc.dt <- res.json$results$companies$company[, name.var]
@@ -186,7 +187,7 @@ fingerprint.func <- function(x)
                 paste(
                   sort(
                     unique(
-                      strsplit(
+                      stringr::str_split(
                         gsub("[[:punct:]]|[[:cntrl:]]", ""
                              , tolower(
                                stringr::str_trim(y)
@@ -266,7 +267,8 @@ get.officers <- function(term, nb.page = 20, token = NULL, country = NULL, ret.s
 
       ### without an API key, it is only possible to query up to 20.
       if(is.null(token)){
-        if(min(nb.pages, nb.page) > 20) nb.pages.fin <- 20
+        if(min(nb.pages, nb.page) > 20) {nb.pages.fin <- 20
+          } else nb.pages.fin <- nb.page
         } else{nb.pages.fin <- min(nb.pages, nb.page)}
 
       off.dt <- res.json$results$officers$officer[, var.officers]
@@ -379,8 +381,8 @@ get.comp.number <- function(company.number, jurisdiction.code
                            , "/", company.number)
   
   # if registered account, add the api key
-  if(!is.null(token)) search.comp.id <- paste0(search.comp.id
-       , "&api_token=", token)
+  if(!is.null(token)) search.comp.id <- unique(paste0(search.comp.id
+       , "&api_token=", token))
 
   # initialise the iteration
   item.num <- 0; item.op.num <- 0 ; miss.item <- NULL; ind.cl.num <- 0
